@@ -3,7 +3,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 import humanize
 from config import MSG_EFFECT, OWNER_ID
-from plugins.shortner import get_short
+
 from helper.helper_func import get_messages, force_sub, decode, batch_auto_del_notification
 import asyncio
 
@@ -41,41 +41,7 @@ async def start_command(client: Client, message: Message):
         except IndexError:
             return await message.reply("Invalid command format.")
 
-        # 3. Check premium status
-        is_user_pro = await client.mongodb.is_pro(user_id)
-        
-        # 4. Check if shortner is enabled
-        shortner_enabled = getattr(client, 'shortner_enabled', True)
-
-        # 5. If user is not premium AND shortner is enabled, send short URL and return
-        if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
-            try:
-                short_link = get_short(f"https://t.me/{client.username}?start=yu3elk{base64_string}7", client)
-            except Exception as e:
-                client.LOGGER(__name__, client.name).warning(f"Shortener failed: {e}")
-                return await message.reply("Couldn't generate short link.")
-
-            short_photo = client.messages.get("SHORT_PIC", "")
-            short_caption = client.messages.get("SHORT_MSG", "")
-            tutorial_link = getattr(client, 'tutorial_link', "https://t.me/How_to_Download_7x/26")
-
-            await client.send_photo(
-                chat_id=message.chat.id,
-                photo=short_photo,
-                caption=short_caption,
-                reply_markup=InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ", url=short_link),
-                        InlineKeyboardButton("ᴛᴜᴛᴏʀɪᴀʟ •", url=tutorial_link)
-                    ],
-                    [
-                        InlineKeyboardButton(" • ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", url="https://t.me/Infinix_Adult/27")
-                    ]
-                ])
-            )
-            return  # prevent sending actual files
-
-        # 6. Decode and prepare file IDs
+        # 3. Decode and prepare file IDs
         try:
             string = await decode(base64_string)
             argument = string.split("-")
@@ -160,7 +126,7 @@ async def start_command(client: Client, message: Message):
             client.LOGGER(__name__, client.name).warning(f"Error decoding base64: {e}")
             return await message.reply("⚠️ Invalid or expired link.")
 
-        # 7. Get messages from the specific source channel first
+        # 4. Get messages from the specific source channel first
         temp_msg = await message.reply("Wait A Sec..")
         messages = []
 
@@ -235,20 +201,21 @@ async def start_command(client: Client, message: Message):
                 client.LOGGER(__name__, client.name).warning(f"Failed to send message: {e}")
                 pass
 
-        # 8. Auto delete timer
+        # 5. Auto delete timer
         if messages and client.auto_del > 0:
-            # Create transfer link with the raw base64 string to force the shortener ad again
-            transfer_link = base64_string
+            async def auto_delete_task():
+                await asyncio.sleep(client.auto_del)
+                for msg in yugen_msgs:
+                    try:
+                        await msg.delete()
+                    except:
+                        pass
+                try:
+                    await client.send_message(message.chat.id, "previous message was deleted")
+                except:
+                    pass
             
-            # Start batch auto delete notification - single notification for all files
-            asyncio.create_task(batch_auto_del_notification(
-                bot_username=client.username,
-                messages=yugen_msgs,
-                delay_time=client.auto_del,
-                transfer_link=transfer_link,
-                chat_id=message.from_user.id,
-                client=client
-            ))
+            asyncio.create_task(auto_delete_task())
         return
 
     # 9. Normal start message
@@ -289,23 +256,6 @@ async def start_command(client: Client, message: Message):
 async def request_command(client: Client, message: Message):
     user_id = message.from_user.id
     is_admin = user_id in client.admins  # ✅ Fix this line
-    is_user_premium = await client.mongodb.is_pro(user_id)
-
-    if is_admin or user_id == OWNER_ID:
-        await message.reply_text("🔹 **You are my sensei!**\nThis command is only for users.")
-        return
-
-    if not is_user_premium: 
-        BUTTON_URL = "https://t.me/hanime_arena/5"
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💎 Upgrade to Premium", url=BUTTON_URL)]
-        ])
-        await message.reply(
-            "❌ **You are not a premium user.**\nUpgrade to premium to access this feature.",
-            reply_markup=reply_markup
-        )
-        return
-
     if len(message.command) < 2:
         await message.reply("⚠️ **Send me your request in this format:**\n`/request Your_Request_Here`")
         return
@@ -332,22 +282,10 @@ async def my_plan(client: Client, message: Message):
         await message.reply_text("🔹 You're my sensei! This command is only for users.")
         return
     
-    is_user_premium = await client.mongodb.is_pro(user_id)
-
-    if is_user_premium:
-        await message.reply_text(
-            "**👤 Profile Information:**\n\n"
-            "🔸 Ads: Disabled\n"
-            "🔸 Plan: Premium\n"
-            "🔸 Request: Enabled\n\n"
-            "🌟 You're a Premium User!"
-        )
-    else:
-        await message.reply_text(
-            "**👤 Profile Information:**\n\n"
-            "🔸 Ads: Enabled\n"
-            "🔸 Plan: Free\n"
-            "🔸 Request: Disabled\n\n"
-            "🔓 Unlock Premium to get more benefits\n"
-            "Contact: @GetoPro"
-        )
+    await message.reply_text(
+        "**👤 Profile Information:**\n\n"
+        "🔸 Ads: Disabled\n"
+        "🔸 Plan: Free\n"
+        "🔸 Request: Enabled\n\n"
+        "🌟 You're a User!"
+    )

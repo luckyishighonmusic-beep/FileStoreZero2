@@ -7,7 +7,7 @@ from pyrogram import Client
 from pyrogram.enums import ParseMode
 import sys
 from datetime import datetime
-from config import LOGGER, PORT, OWNER_ID, SHORT_URL, SHORT_API, SHORT_TUT
+from config import LOGGER, PORT, OWNER_ID
 from helper import MongoDB
 
 version = "v1.0.0"
@@ -124,20 +124,7 @@ class Bot(Client):
         except Exception as e:
             self.LOGGER(__name__, self.name).warning(f"Error loading DB channels: {e}")
         
-        # Load shortner settings from database
-        try:
-            shortner_settings = await self.mongodb.get_shortner_settings()
-            self.short_url = shortner_settings.get('short_url', SHORT_URL)
-            self.short_api = shortner_settings.get('short_api', SHORT_API)
-            self.tutorial_link = shortner_settings.get('tutorial_link', SHORT_TUT)
-            self.shortner_enabled = shortner_settings.get('enabled', True)
-        except Exception as e:
-            self.LOGGER(__name__, self.name).warning(f"Error loading shortner settings: {e}")
-            # Set defaults from config if loading fails
-            self.short_url = SHORT_URL
-            self.short_api = SHORT_API
-            self.tutorial_link = SHORT_TUT
-            self.shortner_enabled = True
+
         
         try:
             db_channel = await self.get_chat(self.db)
